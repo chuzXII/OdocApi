@@ -15,8 +15,8 @@ class TbProfile extends Migration
     {
         Schema::create('tb_profile', function (Blueprint $table) {
             $table->increments('id_profile');
-            $table->bigInteger('id_user')->unsigned();
-            $table->foreign('id_user')->references('id')->on('users');
+            $table->bigInteger('user_id')->unsigned();
+            $table->foreign('user_id')->references('id')->on('users');
             $table->string('nama');
             $table->date('tgllahir');
             $table->integer('umur');

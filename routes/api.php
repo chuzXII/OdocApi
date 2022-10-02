@@ -17,7 +17,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/profile/{id}',[UserApi::class,'GetProfile']);
-Route::post('/order',[UserApi::class,'AddOrder']);
+Route::post('/editprofile',[UserApi::class,'EditProfile']);
+
+Route::post('/orderadd',[UserApi::class,'AddOrder']);
 
 Route::get('/orderpending',[AdminApi::class,'OrderPending']);
 Route::get('/detailorderpending/{id}',[AdminApi::class,'DetailOrderPending']);
