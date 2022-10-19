@@ -15,7 +15,7 @@ class TbCacheOrder extends Migration
     {
         Schema::create('tb_cache_order', function (Blueprint $table) {
             $table->increments('id_order');
-            $table->bigInteger('id_pelanggan'); 
+            $table->integer('id_pelanggan')->unique(); 
             $table->string('jrawat');
             $table->string('keluhan');
             $table->integer('status'); 

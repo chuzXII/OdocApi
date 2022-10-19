@@ -15,7 +15,7 @@ class TbOrder extends Migration
     {
         Schema::create('tb_order', function (Blueprint $table) {
             $table->increments('id_order');
-            $table->bigInteger('id_pelanggan')->unsigned(); 
+            $table->integer('id_pelanggan')->unsigned(); 
             $table->foreign('id_pelanggan')->references('id')->on('users');
             $table->string('jrawat');
             $table->string('keluhan');

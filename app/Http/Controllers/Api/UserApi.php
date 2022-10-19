@@ -23,7 +23,8 @@ class UserApi extends Controller
             $datau = DB::table('tb_profile')->where('user_id', $id)->count();
         } catch (Exception $e) {
             return response()->json([
-                'errors' => $e,
+                'errormsg' => $e,
+                'msg'=>null,
                 'statusApi' => false
 
             ], 404);
@@ -32,9 +33,8 @@ class UserApi extends Controller
         if ($datau <= 0) {
             return response()->json([
                 'data' => null,
+                'msg'=>'Profile Tidak Ditemukan,Silahkan Isi Profile Terlebih Dahulu',
                 'statusApi' => false
-                
-
             ], 404);
         } else {
             return response()->json([
@@ -87,10 +87,10 @@ class UserApi extends Controller
             ], 400);
         } else {
             try {
-                $datau = DB::table('tb_profile')->where('user_id', 1)->count();
+                $datau = DB::table('tb_profile')->where('user_id', $iduser)->count();
                 if ($datau <= 0) {
                     DB::table('tb_profile')->insert([
-                        'user_id' => 1,
+                        'user_id' => $iduser,
                         'nama' => $nama,
                         'tgllahir' => now(),
                         'umur' => $umur,
@@ -101,12 +101,13 @@ class UserApi extends Controller
 
                     ]);
                     return response()->json([
+                        
                         'statusApi' => true
                     ], 200);
                 } else {
 
                     DB::table('tb_profile')
-                        ->where('user_id', 1)
+                        ->where('user_id', $iduser)
                         ->update([
                             'nama' => $nama,
                             'tgllahir' => now(),
@@ -134,7 +135,7 @@ class UserApi extends Controller
     }
     public function AddOrder(Request $req)
     {
-        $idpelangan = $req->id_pelangan;
+        $idpelangan = $req->id_pelanggan;
         $keluhan = $req->keluhan;
         $jrawat = $req->jrawat;
         $validation = Validator::make($req->all(), [
@@ -153,41 +154,83 @@ class UserApi extends Controller
                 'data' => $validation->getMessageBag(),
                 'statusApi' => false
             ], 400);
-        }else{
+        } else {
             try {
-                $cek = DB::table('tb_cache_order')->where('id_pelanggan',2)->where('status', 0)->count();
-    
+                $cek = DB::table('tb_cache_order')->where('id_pelanggan', $idpelangan)->where('status', 0)->count();
+
                 if ($cek >= 1) {
                     return response()->json([
-                        'data'=>null,
-                        'statusmsg'=>'anda sudah melakukan orderan',
-                        'statusApi' => false
-                    ],202);
-                }else{
+                        'data' => null,
+                        'statusmsg' => 'anda sudah melakukan orderan',
+                        'statusApi' => false,
+                        'statusorder' => 0
+
+                    ], 202);
+                } else {
                     DB::table('tb_cache_order')->insert([
-                        'id_pelanggan' => 2,
+                        'id_pelanggan' => $idpelangan,
                         'jrawat' => $jrawat,
                         'keluhan' => $keluhan,
                         'status' => 0,
                         'create_pending' => now()
-        
-        
                     ]);
                     return response()->json([
+                        'data'=>$cek,
                         'statusApi' => true
-                    ],200);
+                    ], 200);
                 }
-                
-    
-              
             } catch (Exception $e) {
                 return response()->json([
                     'errors' => $e,
                     'statusApi' => false
 
-                ],404);
+                ], 404);
             }
         }
-        
+    }
+    public function CountOrderUser($id)
+    {
+        try {
+            $cekpending = DB::table('tb_cache_order')->where('id_pelanggan', $id)->where('status', 0)->count();
+            
+
+            if ($cekpending>=1) {
+                return response()->json([
+                    'data' => null,
+                    'statusmsg' => 'Anda Sudah Melakukan Orderan',
+                    'statusApi' => false,
+                    'statusorder' => 0
+                ], 202);
+            }
+            $cekproses = DB::table('tb_cache_order')->where('id_pelanggan', $id)->where('status', 1)->count();
+            if ($cekproses>=1) {
+                return response()->json([
+                    'data' => null,
+                    'statusmsg' => 'Orderan Sedang Di Proses',
+                    'statusApi' => false,
+                    'statusorder' => 1
+                ], 202);
+            }
+            $cekproses = DB::table('tb_cache_order')->where('id_pelanggan', $id)->where('status', 2)->count();
+            if ($cekproses>=1) {
+                return response()->json([
+                    'data' => null,
+                    'statusmsg' => 'Orderan Telah Selasai',
+                    'statusApi' => false,
+                    'statusorder' => 2
+                ], 202);
+            }
+
+            return response()->json([
+                'data' => 'tidak Itemukan data silahkan order dahulu',
+                'statusApi' => false
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'errors' => $e,
+                'statusApi' => false
+
+            ], 404);
+        }
     }
 }
