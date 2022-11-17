@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Validator;
 
 class UserApi extends Controller
 {
+    public function test(){
+        return response()->json(['sd'=>'asd']);
+    }
     public function GetProfile($id)
     {
         try {
@@ -24,7 +27,7 @@ class UserApi extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'errormsg' => $e,
-                'msg'=>null,
+                'msg' => null,
                 'statusApi' => false
 
             ], 404);
@@ -33,7 +36,7 @@ class UserApi extends Controller
         if ($datau <= 0) {
             return response()->json([
                 'data' => null,
-                'msg'=>'Profile Tidak Ditemukan,Silahkan Isi Profile Terlebih Dahulu',
+                'msg' => 'Profile Tidak Ditemukan,Silahkan Isi Profile Terlebih Dahulu',
                 'statusApi' => false
             ], 404);
         } else {
@@ -86,6 +89,7 @@ class UserApi extends Controller
                 'statusApi' => false
             ], 400);
         } else {
+            
             try {
                 $datau = DB::table('tb_profile')->where('user_id', $iduser)->count();
                 if ($datau <= 0) {
@@ -101,7 +105,7 @@ class UserApi extends Controller
 
                     ]);
                     return response()->json([
-                        
+                        'statusmsg'=>'Profile Berhasil Di Tambahkan',
                         'statusApi' => true
                     ], 200);
                 } else {
@@ -118,7 +122,7 @@ class UserApi extends Controller
                             'updated_at' => now()
                         ]);
                     return response()->json([
-                        'statusApis' => 'upd',
+                        'statusmsg' => 'Profile Berhasil Di Ubah',
 
                         'statusApi' => true
 
@@ -156,32 +160,47 @@ class UserApi extends Controller
             ], 400);
         } else {
             try {
-                $cek = DB::table('tb_cache_order')->where('id_pelanggan', $idpelangan)->where('status', 0)->count();
-
-                if ($cek >= 1) {
+                $cek = DB::table('tb_order')->where('id_pelanggan', $idpelangan)->where('status', 0)->count();
+                $user = DB::table('users')->where('id', $idpelangan)->first();
+                $cekpro = DB::table('tb_profile')->where('user_id', $idpelangan)->count();
+                $userrol = DB::table('users')->where('role',1)->pluck('tokennof');
+                if($cekpro==0){
                     return response()->json([
                         'data' => null,
-                        'statusmsg' => 'anda sudah melakukan orderan',
+                        'statusmsg' => 'Harap Isi Profile Terlebih Dahulu',
                         'statusApi' => false,
                         'statusorder' => 0
 
-                    ], 202);
-                } else {
-                    DB::table('tb_cache_order')->insert([
-                        'id_pelanggan' => $idpelangan,
-                        'jrawat' => $jrawat,
-                        'keluhan' => $keluhan,
-                        'status' => 0,
-                        'create_pending' => now()
-                    ]);
-                    return response()->json([
-                        'data'=>$cek,
-                        'statusApi' => true
-                    ], 200);
+                    ], 404);
                 }
+                else{
+                    if ($cek >= 1) {
+                        return response()->json([
+                            'data' => null,
+                            'statusmsg' => 'anda sudah melakukan orderan',
+                            'statusApi' => false,
+                            'statusorder' => 0
+    
+                        ], 202);
+                    } else {
+                        $this->Notif($userrol, 'Orederan Baru', 'Silahkan Cek Ada Orderan Baru');
+                        DB::table('tb_order')->insert([
+                            'id_pelanggan' => $idpelangan,
+                            'jrawat' => $jrawat,
+                            'keluhan' => $keluhan,
+                            'status' => 0,
+                            'create_pending' => now()
+                        ]);
+                        return response()->json([
+                            'data' => $cek,
+                            'statusApi' => true
+                        ], 200);
+                    }
+                }
+                
             } catch (Exception $e) {
                 return response()->json([
-                    'errors' => $e,
+                    'data' => $e,
                     'statusApi' => false
 
                 ], 404);
@@ -191,10 +210,10 @@ class UserApi extends Controller
     public function CountOrderUser($id)
     {
         try {
-            $cekpending = DB::table('tb_cache_order')->where('id_pelanggan', $id)->where('status', 0)->count();
-            
+            $cekpending = DB::table('tb_order')->where('id_pelanggan', $id)->where('status', 0)->count();
 
-            if ($cekpending>=1) {
+
+            if ($cekpending >= 1) {
                 return response()->json([
                     'data' => null,
                     'statusmsg' => 'Anda Sudah Melakukan Orderan',
@@ -202,8 +221,8 @@ class UserApi extends Controller
                     'statusorder' => 0
                 ], 202);
             }
-            $cekproses = DB::table('tb_cache_order')->where('id_pelanggan', $id)->where('status', 1)->count();
-            if ($cekproses>=1) {
+            $cekproses = DB::table('tb_order')->where('id_pelanggan', $id)->where('status', 1)->count();
+            if ($cekproses >= 1) {
                 return response()->json([
                     'data' => null,
                     'statusmsg' => 'Orderan Sedang Di Proses',
@@ -211,8 +230,8 @@ class UserApi extends Controller
                     'statusorder' => 1
                 ], 202);
             }
-            $cekproses = DB::table('tb_cache_order')->where('id_pelanggan', $id)->where('status', 2)->count();
-            if ($cekproses>=1) {
+            $cekproses = DB::table('tb_order')->where('id_pelanggan', $id)->where('status', 2)->count();
+            if ($cekproses >= 1) {
                 return response()->json([
                     'data' => null,
                     'statusmsg' => 'Orderan Telah Selasai',
@@ -233,4 +252,77 @@ class UserApi extends Controller
             ], 404);
         }
     }
+
+    public function Notif($setid, $settitle, $setmsg)
+    {
+        define('Auth_Key_FCM', 'AAAAKh92Eiw:APA91bEIKPUc3j5SncQ0xRmq8W9rde4RfMPDNjcZ-uPZx0t5xNogAjMdWGNe3YH9INcpKYAtiTNd0udEYCzobIuYf_5VbR3yY1wjkrWJCQKjzC1kXAR_L8I7NwnSdroWezvA8kb-wD-f');
+
+
+        $idTokennof = $setid;
+        $title = $settitle;
+        $msg = $setmsg;
+
+        $data = json_encode([
+            'notification' =>
+            [
+                'title' => $title,
+                'body' => $msg,
+                'vibration' => 1000,
+                'vibrate' => true,
+            ],
+            'registration_ids' => $idTokennof
+        ]);
+
+        $opts = array(
+            'http' =>
+            array(
+                'method'  => 'POST',
+                'header'  => "Content-Type:application/json\r\n" .
+                    "Authorization:key=" . Auth_Key_FCM,
+                'content' => $data
+            )
+        );
+
+        $context  = stream_context_create($opts);
+
+        $result = file_get_contents('https://fcm.googleapis.com/fcm/send', false, $context);
+        if ($result) {
+            return json_decode($result);
+        } else return false;
+    }
+
+    // public function testnof(Request $req)
+    // {
+
+
+    //     $idTokennof = $id;
+    //     $title = 'TEst Title';
+    //     $msg = 'ocatareaxy';
+
+    //     $data = json_encode([
+    //         'notification' =>
+    //         [
+    //             'title' => $title,
+    //             'body' => $msg,
+    //         ],
+    //         'to' => $idTokennof
+    //     ]);
+
+    //     $opts = array(
+    //         'http' =>
+    //         array(
+    //             'method'  => 'POST',
+    //             'header'  => "Content-Type:application/json\r\n" .
+    //                 "Authorization:key=AAAA7Vdyh-U:APA91bHkjgINYnOZ2VJiJ8aBdpJ_QpxW_yUie3P8Pvyhy46mNCrmE_MUBmJtLX7JxDuuslHR2kZKfJdQNX6jsiCbsULILVnm_mtMfbRPH1q6JtULmp3xX4vF-eGzZH4bZwO0idpgNJ3R",
+    //             'content' => $data
+    //         )
+    //     );
+
+    //     $context  = stream_context_create($opts);
+
+    //     $result = file_get_contents('https://fcm.googleapis.com/fcm/send', false, $context);
+    //     if ($result) {
+    //         return json_decode($result);
+    //     } else return false;
+    // }
 }

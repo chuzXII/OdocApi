@@ -29,11 +29,16 @@ return [
     */
 
     'disks' => [
+        'custom' => [
+            'driver' => 'local',
+            'root' => public_path('excel')
+        ],
 
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app'),
         ],
+        
 
         'public' => [
             'driver' => 'local',

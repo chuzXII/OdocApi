@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\MultiExport;
+
 use App\Http\Controllers\Controller;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Excel as ExcelExcel;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AdminApi extends Controller
 {
@@ -13,15 +17,19 @@ class AdminApi extends Controller
     {
         $id = $req->id;
         try {
-            $data = DB::table('users')->where('id', $id)->first();
+            $data = DB::table('users')->select('id','username', )->where('id', $id)->first();
+            $opending = DB::table('tb_order')->where('status', 0)->count();
+            $oproses = DB::table('tb_order')->where('status', 1)->count();
             return response()->json([
                 'data' => $data,
+                'opendding' => $opending,
+                'oproses' => $oproses,
                 'statusApi' => true
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'data' => $e,
-                'msg'=>'Tidak Ditemukan',
+                'msg' => 'Tidak Ditemukan',
                 'statusApi' => false
 
             ], 404);
@@ -30,8 +38,8 @@ class AdminApi extends Controller
     public function OrderPending()
     {
         try {
-            $data = DB::table('tb_cache_order')->join('tb_profile', 'tb_cache_order.id_pelanggan', '=', 'tb_profile.user_id')->where('status', 0)->get();
-            $count = DB::table('tb_cache_order')->where('status', 0)->count();
+            $data = DB::table('tb_order')->join('tb_profile', 'tb_order.id_pelanggan', '=', 'tb_profile.user_id')->where('status', 0)->get();
+            $count = DB::table('tb_order')->where('status', 0)->count();
             if ($count <= 0) {
                 return response()->json([
                     'data' => null,
@@ -41,7 +49,6 @@ class AdminApi extends Controller
             } else {
                 return response()->json([
                     'data' => $data,
-
                     'statusApi' => true
                 ], 200);
             }
@@ -55,8 +62,8 @@ class AdminApi extends Controller
     public function OrderProses()
     {
         try {
-            $data = DB::table('tb_cache_order')->join('tb_profile', 'tb_cache_order.id_pelanggan', '=', 'tb_profile.user_id')->where('status', 1)->orderBy('create_pending', 'DESC')->get();
-            $count = DB::table('tb_cache_order')->where('status', 1)->count();
+            $data = DB::table('tb_order')->join('tb_profile', 'tb_order.id_pelanggan', '=', 'tb_profile.user_id')->where('status', 1)->orderBy('create_pending', 'DESC')->get();
+            $count = DB::table('tb_order')->where('status', 1)->count();
             if ($count <= 0) {
                 return response()->json([
                     'data' => null,
@@ -80,7 +87,7 @@ class AdminApi extends Controller
     public function DetailOrderPending($id)
     {
         try {
-            $data = DB::table('tb_cache_order')->where('status', 0)->where('id_order', $id)->join('tb_profile', 'tb_cache_order.id_pelanggan', '=', 'tb_profile.user_id')->first();
+            $data = DB::table('tb_order')->where('status', 0)->where('id_order', $id)->join('tb_profile', 'tb_order.id_pelanggan', '=', 'tb_profile.user_id')->first();
             return response()->json([
                 'data' => [
                     'ido' => $data->id_order,
@@ -106,7 +113,7 @@ class AdminApi extends Controller
     public function DetailOrderProses($id)
     {
         try {
-            $data = DB::table('tb_cache_order')->where('status', 1)->where('id_order', $id)->join('tb_profile', 'tb_cache_order.id_pelanggan', '=', 'tb_profile.user_id')->first();
+            $data = DB::table('tb_order')->where('status', 1)->where('id_order', $id)->join('tb_profile', 'tb_order.id_pelanggan', '=', 'tb_profile.user_id')->first();
             return response()->json([
                 'data' => [
                     'ido' => $data->id_order,
@@ -129,21 +136,18 @@ class AdminApi extends Controller
             ], 404);
         }
     }
-
     public function Rekap()
     {
-        $data = DB::table('tb_order')->get();
-
-        return response()->json([
-            'data' => $data
-        ]);
+        return Excel::download(new MultiExport, now() . '.xlsx', ExcelExcel::XLSX);
     }
     public function Checklistpendding(Request $req)
     {
         $ido = $req->ido;
         $idp = $req->idp;
         try {
-            DB::table('tb_cache_order')
+            $user = DB::table('users')->where('id', $idp)->first();
+            $this->Notif($user->tokennof, 'Orderan Telah Di Proses', 'Terimakasih Talah Menunggu,Silahkan Tunggu Dokter Menuju Lokasi Anda');
+            DB::table('tb_order')
                 ->where(['id_order' => $ido, 'id_pelanggan' => $idp])
                 ->update(['status' => 1, 'create_proses' => now()]);
             return response()->json([
@@ -164,7 +168,9 @@ class AdminApi extends Controller
         $idp = $req->idp;
 
         try {
-            DB::table('tb_cache_order')
+            $user = DB::table('users')->where('id', $idp)->first();
+            $this->Notif($user->tokennof, 'Orderan Telah Selesai', 'Terimakasih,Jika Masih Memiliki Keluhan Silahkan Order Kembali Kami');
+            DB::table('tb_order')
                 ->where(['id_order' => $ido, 'id_pelanggan' => $idp])
                 ->update(['status' => 2, 'create_selesai' => now()]);
 
@@ -172,7 +178,33 @@ class AdminApi extends Controller
                 'data' => 'upd',
                 's' => $ido,
                 'asds' => $idp,
+                'msg' => 'Berhasil',
+                'statusApi' => true
 
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'erros' => $e,
+                'statusApi' => true
+            ], 404);
+        }
+    }
+    public function DeleteChecklistprosess(Request $req)
+    {
+        $ido = $req->ido;
+        $idp = $req->idp;
+
+        try {
+            $user = DB::table('users')->where('id', $idp)->first();
+            DB::table('tb_order')
+                ->where(['id_order' => $ido, 'id_pelanggan' => $idp])
+                ->update(['status' => 3, 'create_selesai' => now()]);
+            $this->Notif($user->tokennof, 'Orderan Telah Di Batalkan', 'Maaf Orderan Anda Telah Di Batalkan,Silahkan Oder Lagi');
+
+            return response()->json([
+                'data' => 'upd',
+                's' => $ido,
+                'asds' => $idp,
                 'msg' => 'Berhasil',
                 'statusApi' => true
 
@@ -185,31 +217,52 @@ class AdminApi extends Controller
             ], 404);
         }
     }
-    public function DeleteChecklistprosess(Request $req)
+
+    public function Countorder()
     {
-        $ido = $req->ido;
-        $idp = $req->idp;
+        $opending = DB::table('tb_order')->where('status', 0)->count();
+        $oproses = DB::table('tb_order')->where('status', 1)->count();
 
-        try {
-            DB::table('tb_cache_order')
-                ->where(['id_order' => $ido, 'id_pelanggan' => $idp])
-                ->update(['status' => 3, 'create_selesai' => now()]);
+        return response()->json([
+            'opending' => $opending,
+            'oproses' => $oproses
+        ]);
+    }
+    public function Notif($setid, $settitle, $setmsg)
+    {
+        define('Auth_Key_FCM', 'AAAA7Vdyh-U:APA91bHkjgINYnOZ2VJiJ8aBdpJ_QpxW_yUie3P8Pvyhy46mNCrmE_MUBmJtLX7JxDuuslHR2kZKfJdQNX6jsiCbsULILVnm_mtMfbRPH1q6JtULmp3xX4vF-eGzZH4bZwO0idpgNJ3R');
 
-            return response()->json([
-                'data' => 'upd',
-                's' => $ido,
-                'asds' => $idp,
 
-                'msg' => 'Berhasil',
-                'statusApi' => true
+        $idTokennof = $setid;
+        $title = $settitle;
+        $msg =  $setmsg;
 
-            ], 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'erros' => $e,
-                'statusApi' => true
+        $data = json_encode([
+            'notification' =>
+            [
+                'title' => $title,
+                'body' => $msg,
+                'vibration' => 1000,
+                'vibrate' => true,
+            ],
+            'to' => $idTokennof
+        ]);
 
-            ], 404);
-        }
+        $opts = array(
+            'http' =>
+            array(
+                'method'  => 'POST',
+                'header'  => "Content-Type:application/json\r\n" .
+                    "Authorization:key=" . Auth_Key_FCM,
+                'content' => $data
+            )
+        );
+
+        $context  = stream_context_create($opts);
+
+        $result = file_get_contents('https://fcm.googleapis.com/fcm/send', false, $context);
+        if ($result) {
+            return json_decode($result);
+        } else return false;
     }
 }

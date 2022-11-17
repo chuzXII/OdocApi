@@ -64,6 +64,8 @@ class AuthApi extends Controller
     {
         $username = $req->username;
         $password = $req->password;
+        $tokennof = $req->tokennof;
+
 
         $validation = Validator::make($req->all(), [
             'username' => 'required',
@@ -89,6 +91,9 @@ class AuthApi extends Controller
                         'statusApi' => false
                     ], 401);
                 }
+                DB::table('users')
+                ->where(['username' => $username])
+                ->update(['tokennof' => $tokennof, 'updated_at' => now()]);
                 $tokenResult = $user->createToken('token-auth')->plainTextToken;
 
                 return response()->json([
@@ -117,7 +122,7 @@ class AuthApi extends Controller
     {
         try {
             $user = $req->user();
-            $user->tokens()->delete();
+            $user->tokens()->where('id', $user->currentAccessToken()->id)->delete();
             return response()->json([
                 'status' => 'success',
                 'msg' => 'Logout successfully',
@@ -134,5 +139,11 @@ class AuthApi extends Controller
         }
     }
 
+    // public function checkLogin(Request $req){
+    //     $count =DB::table('personal_access_tokens')->where('tokenable_id',$req->id)->count();
+    //     return response()->json([
+    //         'count'=>$count,
+    //     ]);
+    // }
     
 }
